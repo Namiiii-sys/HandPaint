@@ -1,33 +1,37 @@
-'use client'
-import { init } from 'next/dist/compiled/webpack/webpack';
+'use client';
 import { useEffect, useState, useRef } from 'react';
+import { FaHandPaper, FaHandPointUp, FaHandRock} from 'react-icons/fa'
 
-const page = () => {
-  const drawCanvasRef = useRef<HTMLCanvasElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const liveCanvasRef = useRef<HTMLCanvasElement>(null);
+const Page = () => {
+  const drawCanvasRef = useRef(null);
+  const videoRef = useRef(null);
+  const liveCanvasRef = useRef(null);
+  const predictionBuffer = useRef([]);
+  const [currentColor, setCurrentColor] = useState('#ff0000');
+
+
+
 
   const [Isloading, setIsloading] = useState(true);
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(null);
 
-  // _________________Drawing state_________________
+  const prevPos = useRef({ x: null, y: null });
+  const pointercolor = useRef('#ff0000');
 
-  const prevPos = useRef({ x: null, y: null});
-  const pointercolor = useRef('ff0000');
-
-  useEffect(()=>{
+  useEffect(() => {
     let model = null;
     let intervalid = null;
 
     const initHandtracking = async () => {
-      try{
+      try {
         const handtrack = await import('handtrackjs');
-
+      
         const drawCanvas = drawCanvasRef.current;
         const video = videoRef.current;
         const liveCanvas = liveCanvasRef.current;
 
         if (!drawCanvas || !video || !liveCanvas) return;
+
         const contwidth = window.innerWidth / 2;
         const contheight = window.innerHeight;
 
@@ -44,122 +48,215 @@ const page = () => {
           maxNumBoxes: 5,
           iouThreshold: 0.5,
           scoreThreshold: 0.6,
-
         };
-        
-        // _________________Start Video and Load Model_________________
-        const status = await handtrack.default.startVideo(video);
-        if(!status){
+
+        const status = await handtrack.startVideo(video);
+        if (!status) {
           throw new Error('Failed to start the video');
         }
 
-        model = await handtrack.default.load(ModelParams);
+        model = await handtrack.load(ModelParams);
         setIsloading(false);
+        console.log('handtrack module', handtrack)
 
-        // Helper functions
+        
 
         const getRandomclr = () => {
           const letters = '0123456789ABCDEF';
           let color = '#';
-          for (let i = 0; i<6; i++){
-            color += letters[Math.floor(Math.random()*16)];
+          for (let i = 0; i < 6; i++) {
+            color += letters[Math.floor(Math.random() * 16)];
           }
           return color;
         };
 
         const resetDrawing = () => {
-          prevPos.current = {x: null , y: null};
+          prevPos.current = { x: null, y: null };
         };
 
-        const drawfromHand = (x , y , isClosed, isOpen) => {
-          if (prevPos.current.x === null || prevPos.current.y ===null){
-            prevPos.current = {x,y};
+        const drawfromHand = (x, y, isClosed, isOpen) => {
+          if (prevPos.current.x === null || prevPos.current.y === null) {
+            prevPos.current = { x, y };
+            return;
           }
-        }
 
-        if(isOpen){
-          drawCtx.clearRect(0,0, drawCanvas.width, drawCanvas.height);
-          resetDrawing()
-          return;
-        }
-
-        if(isClosed){
-          pointercolor.current = getRandomclr();
-          return;
-        }
-
-        drawCtx.strokeStyle = pointercolor.current;
-        drawCtx.lineWidth = 4;
-        drawCtx.lineCap = 'round';
-        drawCtx.beginPath();
-        drawCtx.moveTo(prevPos.current.x , prevPos.current.y);
-        drawCtx.lineTo(x,y);
-        drawCtx.stroke();
-
-        prevPos.current = { x,y };
-     
-        
-
-      // Main Detection loop
-      intervalid = setInterval(async () => {
-        try{
-          const predictions = await model.detect(video);
-
-          liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-          model.renderPredictions(predictions , liveCanvas , liveCtx , video);
-
-          // _____________Gesture Allocation _____________
-          const open = predictions.find(p => p.label === "open");
-          const closed = predictions.find(p => p.label === "closed");
-          const point = predictions.find(p => p.label === "point");
-
-          if(open) {
-            drawCtx.clearRect(0 , 0, drawCanvas.width, drawCanvas.height );
+          if (isOpen) {
+            drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             resetDrawing();
+            return;
           }
 
-          if (closed){
-            const [ x, y , w , h] = closed.bbox;
-            const centerX = ( x + w / 2) / video.videoWidth * drawCanvas.width;
-            const centerY = ( y + h / 2) / video.videoHeight * drawCanvas.height;
-            drawfromHand(centerX, centerY, true , false);
-
-          } else if (point){
-            const [x , y, w, h] = point.bbox;
-            const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
-            const centerY = ( y + h / 2) / video.videoHeight * drawCanvas.height;
-            drawfromHand(centerX, centerY, false , false);
-         
-          }else{
-            resetDrawing();
-          }
-        }catch (err){
-          console.error('Detection error: ' , err);
-        }
-      }, 100);
-
-    } catch(err){
-      console.error('Initialization error:', err);
-      setError(err.message);
-      setIsloading(false);
-    }
- 
-
-  initHandtracking();
-
-  return()=> {
-    if (intervalid) clearInterval(intervalid);
-    if (videoRef.current && videoRef.current.srcObject){
-      const stream = videorRef.current.scrObject;
-      const tracks = stream.getTracks();
-      tracks.forEach(track => track.stop());
-    }
-  };
-}, []);
-
-if (error){
-  
+          if (isClosed) {
+  const newColor = getRandomclr();
+  pointercolor.current = newColor;
+  setCurrentColor(newColor); 
+  return;
 }
 
 
-export default page
+          drawCtx.strokeStyle = pointercolor.current;
+          drawCtx.lineWidth = 4;
+          drawCtx.lineCap = 'round';
+          drawCtx.beginPath();
+          drawCtx.moveTo(prevPos.current.x, prevPos.current.y);
+          drawCtx.lineTo(x, y);
+          drawCtx.stroke();
+
+          prevPos.current = { x, y };
+        }; 
+    
+        const getStableGesture = (newLabel) => {
+        const bufferSize = 5;
+        predictionBuffer.current.push(newLabel);
+        if (predictionBuffer.current.length > bufferSize) {
+        predictionBuffer.current.shift();
+        }
+
+       const counts = predictionBuffer.current.reduce((acc, label) => {
+       acc[label] = (acc[label] || 0) + 1;
+        return acc;
+      }, {});
+
+  const [mostCommonLabel, count] = Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])[0];
+
+  if (count >= 3) {
+    return mostCommonLabel;
+  }
+
+  return null;
+};
+
+
+        intervalid = setInterval(async () => {
+          try {
+            const predictions = await model.detect(video);
+
+            liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+            model.renderPredictions(predictions, liveCanvas, liveCtx, video);
+
+            const open = predictions.find(p => p.label === "open");
+           const closed = predictions.find(p => p.label === "closed");
+           const point = predictions.find(p => p.label === "point");
+           const face = predictions.find(p => p.label === "face");
+
+let label = null;
+if (open) label = "open";
+else if (closed) label = "closed";
+else if (point) label = "point";
+else if (face) label = "face";
+
+const stableGesture = getStableGesture(label);
+
+if (stableGesture === "open") {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  resetDrawing();
+
+} else if (stableGesture === "closed") {
+  const [x, y, w, h] = closed.bbox;
+  const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
+  const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
+  drawfromHand(centerX, centerY, true, false);
+
+} else if (stableGesture === "point") {
+  const [x, y, w, h] = point.bbox;
+  const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
+  const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
+  drawfromHand(centerX, centerY, false, false);
+
+} else {
+  resetDrawing();
+}
+
+
+          } catch (err) {
+            console.error('Detection error:', err);
+          }
+        }, 100);
+
+      } catch (err) {
+        console.error('Initialization error:', err);
+        setError(err.message);
+        setIsloading(false);
+      }
+    };
+
+    initHandtracking();
+
+    return () => {
+      if (intervalid) clearInterval(intervalid);
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className='flex items-center justify-center h-screen bg-red-50'>
+        <div className='text-red-600 text-center'>
+          <h2 className='text-xl font-bold mb-2'>Error</h2>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className='flex w-full h-screen overflow-hidden bg-white '>
+      <div className='flex-1 relative w-full h-full rounded-2xl p-3'>
+      <canvas ref={drawCanvasRef} className='w-full rounded-xl border-3 border-dashed border-red-300 shadow-inner h-full bg-white'/>
+
+      {/* Current Color Indicator */}
+    
+      
+      
+      {Isloading && (
+    <div className='absolute inset-0 flex items-center justify-center bg-gray-100'>
+      <div className='text-gray-600'>Loading hand tracking...</div>
+     </div>
+  )}
+
+   <div className="absolute bottom-3 left-4 p-2 flex">
+      <span className="text-sm font-bold text-black">Color :</span>
+      <div
+        className="w-6 h-6 rounded-full border border-gray-400 shadow-inner ml-2"
+        style={{ backgroundColor: currentColor }}
+      />
+    </div>
+  
+  <div className="absolute bottom-4 right-4 flex items-center gap-4 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg z-10">
+  
+    <div className='flex gap-2 items-center'>
+      <FaHandPaper title="Open Hand" className='bg-red-400 w-6 h-6 rounded-full p-1'/>
+      <h1 className='text-red-400 text-sm font-semibold'>Clear Canvas</h1>
+    </div>
+    <div className='flex gap-2 items-center'>
+      <FaHandRock title="Close Hand" className='bg-red-400 w-6 h-6 rounded-full p-1'/>
+      <h1 className='text-red-400 text-sm font-semibold'>Change Color</h1>
+    </div>
+    <div className='flex gap-2 items-center'>
+      <FaHandPointUp title="Point Hand" className='bg-red-400 w-6 h-6 rounded-full p-1'/>
+      <h1 className='text-red-400 text-sm font-semibold'>Draw</h1>
+    </div>
+  </div>
+</div>
+
+
+      <div className='flex-1 relative bg-black border-red-300 border-2 '>
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          className='absolute rounded-lg inset-0 border-red-300 border-3 w-full h-full object-cover' />
+        <canvas
+          ref={liveCanvasRef}
+          className='absolute inset-0 w-full h-full' />
+      </div>
+    </div>
+  );
+};
+
+export default Page;
