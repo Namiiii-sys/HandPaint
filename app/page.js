@@ -3,20 +3,23 @@ import { useEffect, useState, useRef } from 'react';
 import { FaHandPaper, FaHandPointUp, FaHandRock} from 'react-icons/fa'
 
 const Page = () => {
+
+  // ____________CANVAS & VIDEO DOM REFERENCES________
   const drawCanvasRef = useRef(null);
   const videoRef = useRef(null);
   const liveCanvasRef = useRef(null);
   const predictionBuffer = useRef([]);
   const [currentColor, setCurrentColor] = useState('#ff0000');
 
-
-
-
+ 
   const [Isloading, setIsloading] = useState(true);
   const [error, setError] = useState(null);
 
   const prevPos = useRef({ x: null, y: null });
   const pointercolor = useRef('#ff0000');
+
+
+  // ____________IMPORTING MODEL & MAIN LOGIC_______________
 
   useEffect(() => {
     let model = null;
@@ -49,6 +52,8 @@ const Page = () => {
           iouThreshold: 0.5,
           scoreThreshold: 0.6,
         };
+      
+        // ________STARTING WEBCAM & MODEL LOADING________
 
         const status = await handtrack.startVideo(video);
         if (!status) {
@@ -60,6 +65,7 @@ const Page = () => {
         console.log('handtrack module', handtrack)
 
         
+      //  _________Helper functions____________
 
         const getRandomclr = () => {
           const letters = '0123456789ABCDEF';
@@ -78,22 +84,21 @@ const Page = () => {
           if (prevPos.current.x === null || prevPos.current.y === null) {
             prevPos.current = { x, y };
             return;
-          }
+        }
 
-          if (isOpen) {
+        if (isOpen) {
             drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
             resetDrawing();
             return;
-          }
+        }
 
-          if (isClosed) {
-  const newColor = getRandomclr();
-  pointercolor.current = newColor;
-  setCurrentColor(newColor); 
-  return;
-}
-
-
+        if (isClosed) {
+           const newColor = getRandomclr();
+           pointercolor.current = newColor;
+           setCurrentColor(newColor); 
+           return;
+        }
+  
           drawCtx.strokeStyle = pointercolor.current;
           drawCtx.lineWidth = 4;
           drawCtx.lineCap = 'round';
@@ -105,6 +110,7 @@ const Page = () => {
           prevPos.current = { x, y };
         }; 
     
+        // ___Another helper functions________
         const getStableGesture = (newLabel) => {
         const bufferSize = 5;
         predictionBuffer.current.push(newLabel);
@@ -117,62 +123,63 @@ const Page = () => {
         return acc;
       }, {});
 
-  const [mostCommonLabel, count] = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1])[0];
+        const [mostCommonLabel, count] = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])[0];
 
-  if (count >= 3) {
-    return mostCommonLabel;
-  }
+      if (count >= 3) {
+        return mostCommonLabel;
+       }
 
-  return null;
-};
+      return null;
+      };
 
+       // ───── Main loop: DETECH AND ACT ON GESTURES ─────
 
         intervalid = setInterval(async () => {
           try {
             const predictions = await model.detect(video);
 
-            liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
-            model.renderPredictions(predictions, liveCanvas, liveCtx, video);
+          liveCtx.clearRect(0, 0, liveCanvas.width, liveCanvas.height);
+          model.renderPredictions(predictions, liveCanvas, liveCtx, video);
 
-            const open = predictions.find(p => p.label === "open");
-           const closed = predictions.find(p => p.label === "closed");
-           const point = predictions.find(p => p.label === "point");
-           const face = predictions.find(p => p.label === "face");
+          const open = predictions.find(p => p.label === "open");
+          const closed = predictions.find(p => p.label === "closed");
+          const point = predictions.find(p => p.label === "point");
+          const face = predictions.find(p => p.label === "face");
 
-let label = null;
-if (open) label = "open";
-else if (closed) label = "closed";
-else if (point) label = "point";
-else if (face) label = "face";
+          let label = null;
+          if (open) label = "open";
+          else if (closed) label = "closed";
+          else if (point) label = "point";
+          else if (face) label = "face";
 
-const stableGesture = getStableGesture(label);
+          const stableGesture = getStableGesture(label);
 
-if (stableGesture === "open") {
+          if (stableGesture === "open") {
   drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   resetDrawing();
 
-} else if (stableGesture === "closed" && closed) {
+          } else if (stableGesture === "closed" && closed) {
   const [x, y, w, h] = closed.bbox;
   const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
   const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
   drawfromHand(centerX, centerY, true, false);
 
-} else if (stableGesture === "point" && point) {
+          } else if (stableGesture === "point" && point) {
   const [x, y, w, h] = point.bbox;
   const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
   const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
   drawfromHand(centerX, centerY, false, false);
 
-} else {
-  resetDrawing();
-}
-
-
-          } catch (err) {
-            console.error('Detection error:', err);
+          } else {
+    resetDrawing();
           }
-        }, 100);
+
+
+            } catch (err) {
+            console.error('Detection error:', err);
+           }
+          }, 100);
 
       } catch (err) {
         console.error('Initialization error:', err);
@@ -203,9 +210,14 @@ if (stableGesture === "open") {
       </div>
     );
   }
+ 
+  // _______UI-PORTION_______ 
 
   return (
     <div className='flex w-full h-screen overflow-hidden bg-white '>
+      
+       {/* ___________CANVAS AREA____________ */}
+
       <div className='flex-1 relative w-full h-full rounded-2xl p-3'>
       <canvas ref={drawCanvasRef} className='w-full rounded-xl border-3 border-dashed border-red-300 shadow-inner h-full bg-white'/>    
       
@@ -214,13 +226,13 @@ if (stableGesture === "open") {
     <div className='absolute inset-0 flex items-center justify-center bg-gray-100'>
       <div className='text-gray-600'>Loading hand tracking...</div>
      </div>
-  )}
+      )}
      
      <h1 className=" absolute text-4xl font-bold text-md text-red-300 text-center left-50 right-50 py-6 top-0"style={{ fontFamily: 'var(--font-lavishly)' }}>
       My Canvas
     </h1>
 
-   <div className="absolute bottom-3 left-4 p-3 flex">
+     <div className="absolute bottom-3 left-4 p-3 flex">
       <span className="text-sm font-bold text-black">Color :</span>
       <div
         className="w-6 h-6 rounded-full border border-gray-400 shadow-inner ml-3"
@@ -243,8 +255,9 @@ if (stableGesture === "open") {
       <h1 className='text-red-400 text-sm font-semibold'>Draw</h1>
     </div>
     </div>
-   </div>
-
+      </div>
+     
+      {/* ____________WEBCAM AREA___________ */}
 
       <div className='flex-1 relative bg-black border-red-300 border-3 '>
         <video
@@ -257,7 +270,7 @@ if (stableGesture === "open") {
           className='absolute inset-0 w-full h-full' />
       </div>
     </div>
-  );
-};
+   );
+  };
 
-export default Page;
+  export default Page;
