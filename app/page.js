@@ -152,13 +152,13 @@ if (stableGesture === "open") {
   drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
   resetDrawing();
 
-} else if (stableGesture === "closed") {
+} else if (stableGesture === "closed" && closed) {
   const [x, y, w, h] = closed.bbox;
   const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
   const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
   drawfromHand(centerX, centerY, true, false);
 
-} else if (stableGesture === "point") {
+} else if (stableGesture === "point" && point) {
   const [x, y, w, h] = point.bbox;
   const centerX = (x + w / 2) / video.videoWidth * drawCanvas.width;
   const centerY = (y + h / 2) / video.videoHeight * drawCanvas.height;
@@ -207,10 +207,7 @@ if (stableGesture === "open") {
   return (
     <div className='flex w-full h-screen overflow-hidden bg-white '>
       <div className='flex-1 relative w-full h-full rounded-2xl p-3'>
-      <canvas ref={drawCanvasRef} className='w-full rounded-xl border-3 border-dashed border-red-300 shadow-inner h-full bg-white'/>
-
-      {/* Current Color Indicator */}
-    
+      <canvas ref={drawCanvasRef} className='w-full rounded-xl border-3 border-dashed border-red-300 shadow-inner h-full bg-white'/>    
       
       
       {Isloading && (
@@ -218,16 +215,20 @@ if (stableGesture === "open") {
       <div className='text-gray-600'>Loading hand tracking...</div>
      </div>
   )}
+     
+     <h1 className=" absolute text-4xl font-bold text-md text-red-300 text-center left-50 right-50 py-6 top-0"style={{ fontFamily: 'var(--font-lavishly)' }}>
+      My Canvas
+    </h1>
 
-   <div className="absolute bottom-3 left-4 p-2 flex">
+   <div className="absolute bottom-3 left-4 p-3 flex">
       <span className="text-sm font-bold text-black">Color :</span>
       <div
-        className="w-6 h-6 rounded-full border border-gray-400 shadow-inner ml-2"
+        className="w-6 h-6 rounded-full border border-gray-400 shadow-inner ml-3"
         style={{ backgroundColor: currentColor }}
       />
     </div>
   
-  <div className="absolute bottom-4 right-4 flex items-center gap-4 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg z-10">
+     <div className="absolute bottom-4 right-4 flex items-center gap-4 bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg z-10">
   
     <div className='flex gap-2 items-center'>
       <FaHandPaper title="Open Hand" className='bg-red-400 w-6 h-6 rounded-full p-1'/>
@@ -241,16 +242,16 @@ if (stableGesture === "open") {
       <FaHandPointUp title="Point Hand" className='bg-red-400 w-6 h-6 rounded-full p-1'/>
       <h1 className='text-red-400 text-sm font-semibold'>Draw</h1>
     </div>
-  </div>
-</div>
+    </div>
+   </div>
 
 
-      <div className='flex-1 relative bg-black border-red-300 border-2 '>
+      <div className='flex-1 relative bg-black border-red-300 border-3 '>
         <video
           ref={videoRef}
           autoPlay
           muted
-          className='absolute rounded-lg inset-0 border-red-300 border-3 w-full h-full object-cover' />
+          className='absolute rounded-lg inset-0 w-full h-full object-cover' />
         <canvas
           ref={liveCanvasRef}
           className='absolute inset-0 w-full h-full' />
